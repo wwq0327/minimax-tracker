@@ -64,8 +64,16 @@ if [ -f "$SETTINGS_FILE" ]; then
     if grep -q '"statusLine"' "$SETTINGS_FILE"; then
         echo "   ⚠ statusLine already exists, skipping"
     else
-        # Add statusLine
-        sed -i '' 's/"model": "haiku"/"model": "haiku",\n  "statusLine": {\n    "type": "command",\n    "command": "\/Users\/'"$USER"'\/.minimax-tracker\/status-bar.sh"\n  }/' "$SETTINGS_FILE"
+        # Add statusLine (macOS: sed -i ''; Linux: sed -i)
+        if [[ "$(uname)" == "Darwin" ]]; then
+            sed -i '' \
+                -e 's/"model": "haiku"/"model": "haiku",\n  "statusLine": {\n    "type": "command",\n    "command": "\/Users\/'"$USER"'\/.minimax-tracker\/status-bar.sh"\n  }/' \
+                "$SETTINGS_FILE"
+        else
+            sed -i \
+                -e 's/"model": "haiku"/"model": "haiku",\n  "statusLine": {\n    "type": "command",\n    "command": "\/Users\/'"$USER"'\/.minimax-tracker\/status-bar.sh"\n  }/' \
+                "$SETTINGS_FILE"
+        fi
         echo "   ✓ Added to $SETTINGS_FILE"
     fi
 else

@@ -1,4 +1,4 @@
-# MiniMax Tracker v0.1.0
+# MiniMax Tracker v0.2.0
 
 Display MiniMax monthly subscription's 5-hour usage progress bar in Claude Code status bar.
 
