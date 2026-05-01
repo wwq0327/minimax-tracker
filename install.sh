@@ -64,8 +64,14 @@ if [ -f "$SETTINGS_FILE" ]; then
     if grep -q '"statusLine"' "$SETTINGS_FILE"; then
         echo "   ⚠ statusLine already exists, skipping"
     else
-        # Add statusLine
-        sed -i '' 's/"model": "haiku"/"model": "haiku",\n  "statusLine": {\n    "type": "command",\n    "command": "\/Users\/'"$USER"'\/.minimax-tracker\/status-bar.sh"\n  }/' "$SETTINGS_FILE"
+        # Add statusLine (macOS: sed -i ''; Linux: sed -i; escape $USER for sed)
+        USER_ESC=$(printf '%s\n' "$USER" | sed 's/[\/&]/\\&/g')
+        SED_CMD='s/"model": "haiku"/"model": "haiku",\n  "statusLine": {\n    "type": "command",\n    "command": "\/Users\/'"$USER_ESC"'\/.minimax-tracker\/status-bar.sh"\n  }/'
+        if [[ "$(uname)" == "Darwin" ]]; then
+            sed -i '' -e "$SED_CMD" "$SETTINGS_FILE"
+        else
+            sed -i -e "$SED_CMD" "$SETTINGS_FILE"
+        fi
         echo "   ✓ Added to $SETTINGS_FILE"
     fi
 else
@@ -75,7 +81,7 @@ fi
 # 7. Test
 echo ""
 echo "7. Testing..."
-~/.minimax-tracker/status-bar.sh
+~/.minimax-tracker/status-bar.sh || echo "   ⚠ Test produced non-zero exit (see above)"
 
 echo ""
 echo "=== Installation Complete ==="
