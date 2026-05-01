@@ -6,6 +6,8 @@
 VERSION="0.2.0"
 DATA_FILE="$HOME/.minimax-tracker/usage.json"
 API_KEY="${MINIMAX_API_KEY:-}"
+MODEL_FILTER='^MiniMax-M'
+REFRESH_INTERVAL_MINUTES=3
 
 # Read cached data
 read_data() {
@@ -18,26 +20,25 @@ read_data() {
 # Fetch new data via mmx quota show
 do_fetch() {
     [[ -z "$API_KEY" ]] && echo "MiniMax: API key not set" >&2 && return 1
-    response=$(mmx quota show --api-key "$API_KEY" --output json 2>/dev/null)
-
+    response=$(mmx quota show --output json)
     [[ -z "$response" ]] && echo "MiniMax: mmx returned empty response" >&2 && return 1
 
     # Parse mmx output - filter MiniMax-M text model
-    used=$(echo "$response" | jq -r '
+    used=$(echo "$response" | jq -r --arg model "$MODEL_FILTER" '
         [.model_remains[] | select(
-            (.model_name | test("^MiniMax-M"))
+            (.model_name | test($model))
         ) | .current_interval_usage_count] | add // 0
     ' 2>/dev/null)
 
-    total=$(echo "$response" | jq -r '
+    total=$(echo "$response" | jq -r --arg model "$MODEL_FILTER" '
         [.model_remains[] | select(
-            (.model_name | test("^MiniMax-M"))
+            (.model_name | test($model))
         ) | .current_interval_total_count] | add // 0
     ' 2>/dev/null)
 
     # remains_time is in milliseconds
-    remains_ms=$(echo "$response" | jq -r '
-        [.model_remains[] | select(.model_name | test("^MiniMax-M")) | .remains_time] | add // 0
+    remains_ms=$(echo "$response" | jq -r --arg model "$MODEL_FILTER" '
+        [.model_remains[] | select(.model_name | test($model)) | .remains_time] | add // 0
     ' 2>/dev/null)
 
     [[ -z "$used" || "$used" == "null" || -z "$total" || "$total" == "null" || "$total" -eq 0 || -z "$remains_ms" || "$remains_ms" == "null" ]] && echo "MiniMax: failed to parse mmx response" >&2 && return 1
@@ -48,8 +49,8 @@ do_fetch() {
     m=$(( (secs % 3600) / 60 ))
     [[ $h -gt 0 ]] && reset_in="${h}小时${m}分" || reset_in="${m}分"
 
-    # Write to cache
-    echo "{\"used\":$used,\"total\":$total,\"reset_in\":\"$reset_in\",\"updated\":\"$(date '+%Y-%m-%d %H:%M')\"}" > "$DATA_FILE"
+    # Write to cache (atomic write)
+    echo "{\"used\":$used,\"total\":$total,\"reset_in\":\"$reset_in\",\"updated\":\"$(date '+%Y-%m-%d %H:%M')\"}" > "$DATA_FILE.tmp" && mv "$DATA_FILE.tmp" "$DATA_FILE"
 }
 
 # Parse timestamp to seconds (macOS: date -j -f; Linux: date -d)
@@ -93,8 +94,10 @@ if [[ -n "$UPDATED" && "$UPDATED" != "null" ]]; then
     last_ts=$(parse_timestamp "$UPDATED")
     if [[ -n "$last_ts" ]]; then
         now_ts=$(date +%s)
-        diff_minutes=$(( (now_ts - last_ts) / 60 ))
-        [[ $diff_minutes -ge 3 ]] && need_refresh=true
+        diff=$((now_ts - last_ts))
+        [[ $diff -lt 0 ]] && diff=0
+        diff_minutes=$((diff / 60))
+        [[ $diff_minutes -ge $REFRESH_INTERVAL_MINUTES ]] && need_refresh=true
     fi
 fi
 
@@ -104,6 +107,7 @@ PERCENT=$(awk -v used="$USED" -v total="$TOTAL" 'BEGIN {printf "%.0f", (total > 
 # Progress bar
 BAR_LEN=20
 FILL_LEN=$((PERCENT * BAR_LEN / 100))
+[[ $FILL_LEN -gt $BAR_LEN ]] && FILL_LEN=$BAR_LEN
 EMPTY_LEN=$((BAR_LEN - FILL_LEN))
 BAR=$(printf "%${FILL_LEN}s" | tr ' ' '█')
 EMPTY=$(printf "%${EMPTY_LEN}s" | tr ' ' '░')
