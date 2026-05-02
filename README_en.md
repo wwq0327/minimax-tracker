@@ -1,40 +1,31 @@
-# MiniMax Tracker v0.2.0
+# MiniMax/DeepSeek Tracker v0.3.0
 
-Display MiniMax monthly subscription's 5-hour usage progress bar in Claude Code status bar.
-
-[English](README_en.md) | [中文](README.md)
-
-## Background
-
-MiniMax is a monthly subscription with 5 hours of usage quota. Checking usage requires opening the website and refreshing, which is cumbersome.
-
-Seeing the usage progress bar directly while working in Claude Code is more convenient. This script was created using vibe coding - describing requirements throughout without writing a single line of code manually.
+Display MiniMax usage or DeepSeek balance in Claude Code status bar.
 
 ## Features
 
-- Real-time usage progress bar display
-- Color levels (green below 50%, yellow below 80%, red above 80%)
-- On-demand fetching (refreshes only when Claude Code is active)
-- Uses official `mmx` CLI for accurate data
+- MiniMax usage progress bar + status levels
+- DeepSeek balance display + daily diff (compared with last balance from previous day)
+- Auto-switch based on current model (deepseek → DeepSeek, minimax → MiniMax)
+- On-demand fetching (refreshes when stale, every 3 minutes)
+- Uses official APIs for accurate data
 
 ## Dependencies
 
-- `mmx-cli` (npm install -g mmx-cli)
+- `mmx-cli` (MiniMax only)
 - `jq`
-- Environment variable `MINIMAX_API_KEY`
+- At least one of `MINIMAX_API_KEY` or `DEEPSEEK_API_KEY`
 
 ## Installation
 
 ### 1. Set environment variable
 
 ```bash
+# MiniMax
 export MINIMAX_API_KEY="sk-cp-your-key"
-```
 
-Add to `~/.zshrc` or `~/.bashrc` for permanent access:
-
-```bash
-echo 'export MINIMAX_API_KEY="sk-cp-your-key"' >> ~/.zshrc
+# DeepSeek
+export DEEPSEEK_API_KEY="sk-your-key"
 ```
 
 ### 2. Run install script
@@ -45,25 +36,42 @@ echo 'export MINIMAX_API_KEY="sk-cp-your-key"' >> ~/.zshrc
 
 ### 3. Restart Claude Code
 
-## Configuration
-
-- API Key is read from environment variable `MINIMAX_API_KEY` (not hardcoded)
-- Script saved at `~/.minimax-tracker/status-bar.sh`
-- Data cached at `~/.minimax-tracker/usage.json`
-
-## Progress Bar Style
+## Display
 
 ```
-MiniMax: [██░░░░░░░░░░░░░░░░░] 30% 450/1500 (2h until reset, 0min ago)
+# MiniMax (when current model is MiniMax)
+MiniMax: [████░░░░] 30% LOW 450/1500 (50min until reset) (3min ago)
+
+# DeepSeek (when current model is DeepSeek)
+DeepSeek: ¥121.50 (3min ago)
+
+# DeepSeek with daily diff
+DeepSeek: ¥120.38 (↓¥1.62) (3min ago)   # Balance decreased (usage)
+DeepSeek: ¥130.00 (↑¥10.00) (3min ago)  # Balance increased (top-up)
 ```
 
-## Color Levels
+## DeepSeek Daily Diff
 
-| Usage | Color |
-|-------|-------|
-| 0-50% | Green |
-| 51-80% | Yellow |
-| 81%+ | Red |
+- Balance is recorded per day in `~/.minimax-tracker/ds_daily.json` (last 7 days kept)
+- Diff is calculated against the most recent non-today balance
+- Decrease shown as `↓¥x.xx`, increase as `↑¥x.xx`, no change or no history → hidden
+
+## Data Files (~/.minimax-tracker/)
+
+| File | Description |
+|------|-------------|
+| `usage.json` | MiniMax usage cache |
+| `ds_balance.json` | DeepSeek balance cache |
+| `ds_daily.json` | DeepSeek daily balance record (7 days) |
+
+## Env vars
+
+| Variable | Service |
+|----------|---------|
+| `MINIMAX_API_KEY` | MiniMax |
+| `DEEPSEEK_API_KEY` | DeepSeek |
+
+At least one required.
 
 ## Uninstall
 

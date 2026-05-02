@@ -1,70 +1,80 @@
 #!/bin/bash
-# MiniMax Tracker Install Script
+# MiniMax/DeepSeek Tracker Install Script
 
 set -e
 
-echo "=== MiniMax Tracker Installation ==="
+echo "=== MiniMax/DeepSeek Tracker Installation ==="
 
-# 1. Check mmx-cli
+# 1. Check environment variables
 echo ""
-echo "1. Checking mmx-cli..."
-if command -v mmx &> /dev/null; then
-    echo "   ✓ mmx-cli installed: $(mmx --version)"
+echo "1. Checking API keys..."
+has_mm=false
+has_ds=false
+[ -n "$MINIMAX_API_KEY" ] && has_mm=true
+[ -n "$DEEPSEEK_API_KEY" ] && has_ds=true
+
+if ! $has_mm && ! $has_ds; then
+    echo "   ✗ Neither MINIMAX_API_KEY nor DEEPSEEK_API_KEY is set"
+    echo ""
+    echo "   Set at least one:"
+    echo '   export MINIMAX_API_KEY="sk-cp-your-key"'
+    echo '   export DEEPSEEK_API_KEY="sk-your-key"'
+    echo ""
+    echo "   Add to ~/.zshrc or ~/.bashrc for permanent access"
+    exit 1
+fi
+$has_mm && echo "   ✓ MINIMAX_API_KEY is set"
+$has_ds && echo "   ✓ DEEPSEEK_API_KEY is set"
+
+# 2. Check mmx-cli (only if MiniMax key is set)
+if $has_mm; then
+    echo ""
+    echo "2. Checking mmx-cli..."
+    if command -v mmx &> /dev/null; then
+        echo "   ✓ mmx-cli installed: $(mmx --version)"
+    else
+        echo "   ✗ mmx-cli not found, installing..."
+        npm install -g mmx-cli
+        echo "   ✓ Installation complete"
+    fi
+    step=3
 else
-    echo "   ✗ mmx-cli not found, installing..."
-    npm install -g mmx-cli
-    echo "   ✓ Installation complete"
+    step=2
 fi
 
-# 2. Check jq
+# N. Check jq
 echo ""
-echo "2. Checking jq..."
+echo "$step. Checking jq..."
 if command -v jq &> /dev/null; then
     echo "   ✓ jq installed"
 else
     echo "   ✗ jq not found, please install: brew install jq"
     exit 1
 fi
+step=$((step + 1))
 
-# 3. Check environment variable
+# N+1. Create directory
 echo ""
-echo "3. Checking MINIMAX_API_KEY..."
-if [ -n "$MINIMAX_API_KEY" ]; then
-    echo "   ✓ MINIMAX_API_KEY is set"
-else
-    echo "   ✗ MINIMAX_API_KEY not set"
-    echo ""
-    echo "   Please set the environment variable first:"
-    echo '   export MINIMAX_API_KEY="sk-cp-your-key"'
-    echo ""
-    echo "   Add to ~/.zshrc or ~/.bashrc for permanent access"
-    exit 1
-fi
-
-# 4. Create directory
-echo ""
-echo "4. Creating config directory..."
+echo "$step. Creating config directory..."
 mkdir -p ~/.minimax-tracker
 echo "   ✓ Directory: ~/.minimax-tracker"
 
-# 5. Copy script
+# N+2. Copy script
 echo ""
-echo "5. Copying script..."
+echo "$((step + 1)). Copying script..."
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 cp "$SCRIPT_DIR/status-bar.sh" ~/.minimax-tracker/
 chmod +x ~/.minimax-tracker/status-bar.sh
 echo "   ✓ Copied to ~/.minimax-tracker/status-bar.sh"
 
-# 6. Configure Claude Code
+# N+3. Configure Claude Code
 echo ""
-echo "6. Configuring Claude Code status bar..."
+echo "$((step + 2)). Configuring Claude Code status bar..."
 SETTINGS_FILE="$HOME/.claude/settings.json"
 if [ -f "$SETTINGS_FILE" ]; then
-    # Check if statusLine already exists
     if grep -q '"statusLine"' "$SETTINGS_FILE"; then
         echo "   ⚠ statusLine already exists, skipping"
     else
-        # Add statusLine (macOS: sed -i ''; Linux: sed -i; escape $USER for sed)
         USER_ESC=$(printf '%s\n' "$USER" | sed 's/[\/&]/\\&/g')
         SED_CMD='s/"model": "haiku"/"model": "haiku",\n  "statusLine": {\n    "type": "command",\n    "command": "\/Users\/'"$USER_ESC"'\/.minimax-tracker\/status-bar.sh"\n  }/'
         if [[ "$(uname)" == "Darwin" ]]; then
@@ -78,12 +88,13 @@ else
     echo "   ✗ settings.json not found, please configure manually"
 fi
 
-# 7. Test
+# N+4. Test
 echo ""
-echo "7. Testing..."
+echo "$((step + 3)). Testing..."
 ~/.minimax-tracker/status-bar.sh || echo "   ⚠ Test produced non-zero exit (see above)"
 
 echo ""
 echo "=== Installation Complete ==="
 echo ""
-echo "Make sure MINIMAX_API_KEY is set, then restart Claude Code"
+echo "Restart Claude Code to see the status bar."
+echo "To add another service later, set its API key and re-run this script."
